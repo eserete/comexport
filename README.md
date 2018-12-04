@@ -46,6 +46,8 @@ Windows
 gradlew.bat bootRun
 ```
 
+### Rodando o projeto em ambiente dockerizado
+- WIP
 
 ### À melhorar?
 - retornar os valores fracionados com precisão de duas casas decimais

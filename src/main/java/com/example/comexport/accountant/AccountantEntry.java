@@ -1,28 +1,38 @@
 package com.example.comexport.accountant;
 
-import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
-import javax.persistence.ManyToOne;
+import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.Date;
+import java.util.UUID;
 
-@NoArgsConstructor
-@Entity
 @Data
-public class AccountantEntry {
+@Entity
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+class AccountantEntry {
 
     @Id
-    @GeneratedValue
-    private Integer id;
+    private UUID id;
 
-    @ManyToOne
-    private Account account;
+    @NotNull
+    @JsonProperty("contaContabil")
+    private String accountNumber;
 
-    private LocalDate entryDate;
+    @NotNull
+    @JsonProperty("data")
+    @DateTimeFormat(pattern = "yyyyMMdd")
+    private Date entryDate;
 
+    @NotNull
+    @JsonProperty("valor")
     private BigDecimal amount;
 
 }

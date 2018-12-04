@@ -13,6 +13,12 @@ buildscript {
 
 plugins {
     id 'io.franzbecker.gradle-lombok' version '1.14'
+    id 'net.ltgt.apt' version '0.10'
+}
+
+lombok {
+    version = '1.18.4'
+    sha256 = ""
 }
 
 apply plugin: 'java'
@@ -24,19 +30,23 @@ apply plugin: 'io.franzbecker.gradle-lombok'
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = 1.8
-
+cucumberVersion = '1.2.4'
 
 repositories {
 	mavenCentral()
 }
 
-
 dependencies {
 	implementation('org.springframework.boot:spring-boot-starter-actuator')
 	implementation('org.springframework.boot:spring-boot-starter-data-jpa')
 	implementation('org.springframework.boot:spring-boot-starter-web')
+    compileOnly 'org.projectlombok:lombok:1.18.4'
+    apt 'org.projectlombok:lombok:1.18.4'
 	runtimeOnly('org.springframework.boot:spring-boot-devtools')
 	testImplementation('org.springframework.boot:spring-boot-starter-test')
 	testImplementation('com.h2database:h2')
+	testImplementation("info.cukes:cucumber-java:${cucumberVersion}")
+	testImplementation("info.cukes:cucumber-junit:${cucumberVersion}")
+	testImplementation("info.cukes:cucumber-spring:${cucumberVersion}")
 }
 

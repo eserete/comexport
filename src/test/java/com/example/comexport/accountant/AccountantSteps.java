@@ -1,7 +1,9 @@
 package com.example.comexport.accountant;
 
 import com.example.comexport.ComexportApplication;
-import cucumber.api.PendingException;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import cucumber.api.java.en.And;
 import cucumber.api.java.en.Given;
 import cucumber.api.java.en.Then;
@@ -9,24 +11,27 @@ import cucumber.api.java.en.When;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Assert;
-import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.util.StringUtils;
 
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.Set;
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@RunWith(SpringRunner.class)
 @AutoConfigureMockMvc
 @ContextConfiguration(
         classes = ComexportApplication.class)
@@ -37,9 +42,23 @@ public class AccountantSteps {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private AccountantEntryRepository accountantEntryRepository;
+
+    @Autowired
+    private ObjectIdGenerators.UUIDGenerator uuidGenerator;
+
     private JSONObject requestBody;
 
+    private AccountantEntry accountantEntry;
+
     private ResultActions resultActions;
+
+    private UUID uuid;
+    private Integer accountNumber;
 
     @Given("the client has a valid registry")
     public void theClientHasAValidRegistry() throws JSONException {
@@ -54,14 +73,14 @@ public class AccountantSteps {
     public void theClientAttemptToSaveAnAccountantEntry() throws Throwable {
         resultActions = mockMvc.perform(post("/lancamentos-contabeis")
                 .content(String.valueOf(requestBody))
-                .contentType(MediaType.APPLICATION_JSON));
+                .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print());
     }
 
     @Then("^the system return a uuid of the accountant entry$")
     public void theSystemReturnAUuidOfTheAccountantEntry() throws Throwable {
         String responseContent = resultActions.andReturn().getResponse().getContentAsString();
         JSONObject response = new JSONObject(responseContent);
-
         Assert.assertNotNull(UUID.fromString(response.get("id").toString()));
     }
 
@@ -75,5 +94,90 @@ public class AccountantSteps {
         requestBody = new JSONObject();
         requestBody.put("contaContabil", 1111001);
         requestBody.put("data", 20170130);
+    }
+
+    @Given("^the client has a existing registry uuid$")
+    public void theClientHasAExistingRegistryUuid() {
+        uuid = accountantEntry.getId();
+    }
+
+    @When("^the client attempt to find the accountant entry$")
+    public void theClientAttemptToFindTheAccountantEntry() throws Exception {
+        resultActions = mockMvc.perform(get("/lancamentos-contabeis/" + uuid))
+                .andDo(print());
+    }
+
+    @And("^the system returns the expected accountant entry$")
+    public void theSystemReturnTheExpectedAccountantEntry() throws Throwable {
+        AccountantEntry accountantEntry = objectMapper.readValue(
+                resultActions.andReturn().getResponse().getContentAsString(),
+                AccountantEntry.class);
+        Assert.assertEquals(accountantEntry.getAccountNumber(), this.accountantEntry.getAccountNumber());
+        Assert.assertEquals(accountantEntry.getAmount(), this.accountantEntry.getAmount());
+        Assert.assertEquals(accountantEntry.getEntryDate(), this.accountantEntry.getEntryDate());
+    }
+
+    @And("^the system has at least one accountant entry registered$")
+    public void theSystemHasAnAccountantEntryRegistered() {
+        accountantEntry = new AccountantEntry();
+        accountantEntry.setAccountNumber(12345);
+        accountantEntry.setAmount(BigDecimal.valueOf(123.23));
+        accountantEntry.setEntryDate(new Date());
+        accountantEntry.setId(uuidGenerator.generateId(accountantEntry));
+        accountantEntryRepository.save(accountantEntry);
+
+        AccountantEntry accountantEntry2 = new AccountantEntry();
+        accountantEntry2.setAccountNumber(12345);
+        accountantEntry2.setAmount(BigDecimal.valueOf(22.5));
+        accountantEntry2.setEntryDate(new Date());
+        accountantEntry2.setId(uuidGenerator.generateId(accountantEntry2));
+        accountantEntryRepository.save(accountantEntry2);
+
+        AccountantEntry accountantEntry3 = new AccountantEntry();
+        accountantEntry3.setAccountNumber(34567);
+        accountantEntry3.setAmount(BigDecimal.valueOf(435.67));
+        accountantEntry3.setEntryDate(new Date());
+        accountantEntry3.setId(uuidGenerator.generateId(accountantEntry3));
+        accountantEntryRepository.save(accountantEntry3);
+    }
+
+    @Given("^the client has a not registered accountant uuid$")
+    public void theClientHasANotRegisteredAccountantUuid() {
+        uuid = UUID.randomUUID();
+    }
+
+    @And("^the system returns empty body$")
+    public void theSystemReturnEmptyBody() throws UnsupportedEncodingException {
+        String responseBody = resultActions.andReturn().getResponse().getContentAsString();
+        Assert.assertTrue(StringUtils.isEmpty(responseBody));
+    }
+
+    @And("^the client has a existing account number$")
+    public void theClientHasAExistingAccountNumber() {
+        accountNumber = accountantEntry.getAccountNumber();
+    }
+
+    @When("^the client attempt to find accountant entries by account number$")
+    public void theClientAttemptToFindAccountantEntriesByAccountNumber() throws Throwable {
+        resultActions = mockMvc.perform(get("/lancamentos-contabeis?contaContabil=" + accountNumber))
+                .andDo(print());
+    }
+
+    @And("^the system returns the expected accountant entries$")
+    public void theSystemReturnsTheExpectedAccountantEntries() throws Throwable {
+        Set<AccountantEntry> response = objectMapper.readValue(
+                resultActions.andReturn().getResponse().getContentAsString(),
+                new TypeReference<Set<AccountantEntry>>() {});
+        Assert.assertTrue(response
+                .stream()
+                .allMatch(entry -> entry.getAccountNumber().equals(accountNumber)));
+    }
+
+    @When("^the client attempt to get account stats$")
+    public void theClientAttemptToGetAccountStats() throws Throwable {
+        resultActions = mockMvc.perform(post("/lancamentos-contabeis/_stats")
+                .content(String.valueOf(requestBody))
+                .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print());
     }
 }

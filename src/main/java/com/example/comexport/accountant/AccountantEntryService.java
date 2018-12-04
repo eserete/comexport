@@ -34,4 +34,8 @@ public class AccountantEntryService {
     Stream<AccountantEntry> findByAccountNumber(Integer accountNumber) {
         return accountantEntryRepository.findAccountantEntriesByAccountNumber(accountNumber);
     }
+
+    Stats stats(Integer accountNumber) {
+        return accountantEntryRepository.stats(accountNumber);
+    }
 }

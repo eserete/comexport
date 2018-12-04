@@ -4,6 +4,7 @@ import com.example.comexport.ComexportApplication;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cucumber.api.java.After;
 import cucumber.api.java.en.And;
 import cucumber.api.java.en.Given;
 import cucumber.api.java.en.Then;
@@ -14,6 +15,7 @@ import org.junit.Assert;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
@@ -22,10 +24,9 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.util.StringUtils;
 
 import java.io.UnsupportedEncodingException;
-import java.math.BigDecimal;
-import java.util.Date;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Supplier;
+import java.util.stream.DoubleStream;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -51,6 +52,9 @@ public class AccountantSteps {
     @Autowired
     private ObjectIdGenerators.UUIDGenerator uuidGenerator;
 
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
     private JSONObject requestBody;
 
     private AccountantEntry accountantEntry;
@@ -59,6 +63,21 @@ public class AccountantSteps {
 
     private UUID uuid;
     private Integer accountNumber;
+    private double expectedMin;
+    private double expectedMax;
+    private double expectedAverage;
+    private double expectedSum;
+    private long expectedCount;
+
+    @After
+    public void reset() {
+        mongoTemplate.dropCollection(AccountantEntry.class);
+        uuid = null;
+        accountNumber = null;
+        resultActions = null;
+        accountantEntry = null;
+    }
+
 
     @Given("the client has a valid registry")
     public void theClientHasAValidRegistry() throws JSONException {
@@ -69,7 +88,7 @@ public class AccountantSteps {
     }
 
 
-    @When("^the client attempt to save an accountant entry$")
+    @When("^the client attempts to save an accountant entry$")
     public void theClientAttemptToSaveAnAccountantEntry() throws Throwable {
         resultActions = mockMvc.perform(post("/lancamentos-contabeis")
                 .content(String.valueOf(requestBody))
@@ -84,7 +103,7 @@ public class AccountantSteps {
         Assert.assertNotNull(UUID.fromString(response.get("id").toString()));
     }
 
-    @And("^the system return status (\\d+)$")
+    @And("^the system returns status (\\d+)$")
     public void theSystemReturnStatusCREATED(int status) throws Throwable {
         resultActions.andExpect(status().is(status));
     }
@@ -101,7 +120,7 @@ public class AccountantSteps {
         uuid = accountantEntry.getId();
     }
 
-    @When("^the client attempt to find the accountant entry$")
+    @When("^the client attempts to find the accountant entry$")
     public void theClientAttemptToFindTheAccountantEntry() throws Exception {
         resultActions = mockMvc.perform(get("/lancamentos-contabeis/" + uuid))
                 .andDo(print());
@@ -113,7 +132,7 @@ public class AccountantSteps {
                 resultActions.andReturn().getResponse().getContentAsString(),
                 AccountantEntry.class);
         Assert.assertEquals(accountantEntry.getAccountNumber(), this.accountantEntry.getAccountNumber());
-        Assert.assertEquals(accountantEntry.getAmount(), this.accountantEntry.getAmount());
+        Assert.assertEquals(accountantEntry.getAmount(), this.accountantEntry.getAmount(), 0.0);
         Assert.assertEquals(accountantEntry.getEntryDate(), this.accountantEntry.getEntryDate());
     }
 
@@ -121,24 +140,31 @@ public class AccountantSteps {
     public void theSystemHasAnAccountantEntryRegistered() {
         accountantEntry = new AccountantEntry();
         accountantEntry.setAccountNumber(12345);
-        accountantEntry.setAmount(BigDecimal.valueOf(123.23));
+        accountantEntry.setAmount(123.23);
         accountantEntry.setEntryDate(new Date());
         accountantEntry.setId(uuidGenerator.generateId(accountantEntry));
         accountantEntryRepository.save(accountantEntry);
 
         AccountantEntry accountantEntry2 = new AccountantEntry();
         accountantEntry2.setAccountNumber(12345);
-        accountantEntry2.setAmount(BigDecimal.valueOf(22.5));
+        accountantEntry2.setAmount(22.5);
         accountantEntry2.setEntryDate(new Date());
         accountantEntry2.setId(uuidGenerator.generateId(accountantEntry2));
         accountantEntryRepository.save(accountantEntry2);
 
         AccountantEntry accountantEntry3 = new AccountantEntry();
         accountantEntry3.setAccountNumber(34567);
-        accountantEntry3.setAmount(BigDecimal.valueOf(435.67));
+        accountantEntry3.setAmount(435.67);
         accountantEntry3.setEntryDate(new Date());
         accountantEntry3.setId(uuidGenerator.generateId(accountantEntry3));
         accountantEntryRepository.save(accountantEntry3);
+
+        AccountantEntry accountantEntry4 = new AccountantEntry();
+        accountantEntry4.setAccountNumber(34567);
+        accountantEntry4.setAmount(999.0);
+        accountantEntry4.setEntryDate(new Date());
+        accountantEntry4.setId(uuidGenerator.generateId(accountantEntry3));
+        accountantEntryRepository.save(accountantEntry4);
     }
 
     @Given("^the client has a not registered accountant uuid$")
@@ -157,7 +183,7 @@ public class AccountantSteps {
         accountNumber = accountantEntry.getAccountNumber();
     }
 
-    @When("^the client attempt to find accountant entries by account number$")
+    @When("^the client attempts to find accountant entries by account number$")
     public void theClientAttemptToFindAccountantEntriesByAccountNumber() throws Throwable {
         resultActions = mockMvc.perform(get("/lancamentos-contabeis?contaContabil=" + accountNumber))
                 .andDo(print());
@@ -175,7 +201,117 @@ public class AccountantSteps {
 
     @When("^the client attempt to get account stats$")
     public void theClientAttemptToGetAccountStats() throws Throwable {
-        resultActions = mockMvc.perform(post("/lancamentos-contabeis/_stats")
+        resultActions = mockMvc.perform(get("/lancamentos-contabeis/_stats")
+                .content(String.valueOf(requestBody))
+                .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print());
+    }
+
+    @And("^the system returns expected stats numbers$")
+    public void theSystemReturnsExpectedStatsNumbers() throws Throwable {
+        Stats response = objectMapper.readValue(
+                resultActions.andReturn().getResponse().getContentAsString(),
+                Stats.class);
+        Assert.assertEquals(expectedCount, response.getCount());
+        Assert.assertEquals(expectedSum, response.getSum(), 0.0);
+        Assert.assertEquals(expectedAverage, response.getAverage(), 0.0);
+        Assert.assertEquals(expectedMax, response.getMax(), 0.0);
+        Assert.assertEquals(expectedMin, response.getMin(), 0.0);
+    }
+
+    @Given("^the system has a list of accountant entry register$")
+    public void theSystemHasAListOfAccountantEntryRegister() {
+        List<AccountantEntry> accountantEntries = new ArrayList<>();
+        AccountantEntry accountantEntry = new AccountantEntry();
+        accountantEntry.setAccountNumber(12345);
+        accountantEntry.setAmount(123.23);
+        accountantEntry.setEntryDate(new Date());
+        accountantEntry.setId(uuidGenerator.generateId(accountantEntry));
+        accountantEntries.add(accountantEntry);
+
+        AccountantEntry accountantEntry2 = new AccountantEntry();
+        accountantEntry2.setAccountNumber(12345);
+        accountantEntry2.setAmount(22.5);
+        accountantEntry2.setEntryDate(new Date());
+        accountantEntry2.setId(uuidGenerator.generateId(accountantEntry2));
+        accountantEntries.add(accountantEntry2);
+
+        AccountantEntry accountantEntry3 = new AccountantEntry();
+        accountantEntry3.setAccountNumber(34567);
+        accountantEntry3.setAmount(435.67);
+        accountantEntry3.setEntryDate(new Date());
+        accountantEntry3.setId(uuidGenerator.generateId(accountantEntry3));
+        accountantEntries.add(accountantEntry3);
+
+        AccountantEntry accountantEntry4 = new AccountantEntry();
+        accountantEntry4.setAccountNumber(34567);
+        accountantEntry4.setAmount(999.0);
+        accountantEntry4.setEntryDate(new Date());
+        accountantEntry4.setId(uuidGenerator.generateId(accountantEntry4));
+        accountantEntries.add(accountantEntry4);
+
+        accountantEntryRepository.saveAll(accountantEntries);
+
+        Supplier<DoubleStream> amountSupplier = () -> accountantEntries.stream().mapToDouble(AccountantEntry::getAmount);
+        expectedMin = amountSupplier.get().min().orElse(0.0);
+        expectedMax = amountSupplier.get().max().orElse(0.0);
+        expectedAverage = amountSupplier.get().average().orElse(0.0);
+        expectedSum = amountSupplier.get().sum();
+        expectedCount = amountSupplier.get().count();
+    }
+
+    @Given("^the client has a specific account number to search$")
+    public void theClientHasASpecificAccountNumberToSearch() {
+        accountNumber = 12345;
+    }
+
+    @And("^the system has a list of accountant entry register with account number$")
+    public void theSystemHasAListOfAccountantEntryRegisterWithAccountNumber() {
+        List<AccountantEntry> accountantEntries = new ArrayList<>();
+        AccountantEntry accountantEntry = new AccountantEntry();
+        accountantEntry.setAccountNumber(accountNumber);
+        accountantEntry.setAmount(123.23);
+        accountantEntry.setEntryDate(new Date());
+        accountantEntry.setId(uuidGenerator.generateId(accountantEntry));
+        accountantEntries.add(accountantEntry);
+
+        AccountantEntry accountantEntry2 = new AccountantEntry();
+        accountantEntry2.setAccountNumber(accountNumber);
+        accountantEntry2.setAmount(22.5);
+        accountantEntry2.setEntryDate(new Date());
+        accountantEntry2.setId(uuidGenerator.generateId(accountantEntry2));
+        accountantEntries.add(accountantEntry2);
+
+        AccountantEntry accountantEntry3 = new AccountantEntry();
+        accountantEntry3.setAccountNumber(accountNumber);
+        accountantEntry3.setAmount(435.67);
+        accountantEntry3.setEntryDate(new Date());
+        accountantEntry3.setId(uuidGenerator.generateId(accountantEntry3));
+        accountantEntries.add(accountantEntry3);
+
+        AccountantEntry accountantEntry4 = new AccountantEntry();
+        accountantEntry4.setAccountNumber(34567);
+        accountantEntry4.setAmount(999.0);
+        accountantEntry4.setEntryDate(new Date());
+        accountantEntry4.setId(uuidGenerator.generateId(accountantEntry4));
+        accountantEntries.add(accountantEntry4);
+
+        accountantEntryRepository.saveAll(accountantEntries);
+
+        Supplier<DoubleStream> amountSupplier = () -> accountantEntries
+                .stream()
+                .filter(entry -> entry.getAccountNumber().equals(accountNumber))
+                .mapToDouble(AccountantEntry::getAmount);
+        expectedMin = amountSupplier.get().min().orElse(0.0);
+        expectedMax = amountSupplier.get().max().orElse(0.0);
+        expectedAverage = amountSupplier.get().average().orElse(0.0);
+        expectedSum = amountSupplier.get().sum();
+        expectedCount = amountSupplier.get().count();
+    }
+
+    @When("^the client attempt to get account stats by account number$")
+    public void theClientAttemptToGetAccountStatsByAccountNumber() throws Throwable {
+        resultActions = mockMvc.perform(get("/lancamentos-contabeis/_stats?contaContabil=" + accountNumber)
                 .content(String.valueOf(requestBody))
                 .contentType(MediaType.APPLICATION_JSON))
                 .andDo(print());

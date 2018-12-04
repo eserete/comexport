@@ -10,7 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.validation.constraints.NotNull;
-import java.math.BigDecimal;
 import java.util.Date;
 import java.util.UUID;
 
@@ -35,6 +34,6 @@ class AccountantEntry {
 
     @NotNull
     @JsonProperty("valor")
-    private BigDecimal amount;
+    private Double amount;
 
 }

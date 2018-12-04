@@ -43,4 +43,9 @@ public class AccountantController {
         return accountService.findByAccountNumber(accountNumber);
     }
 
+    @GetMapping(value = {"/lancamentos-contabeis/_stats"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    public Stats stats(@RequestParam(name = "contaContabil", required = false) Integer accountNumber) {
+        return accountService.stats(accountNumber);
+    }
+
 }

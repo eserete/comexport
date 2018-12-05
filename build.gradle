@@ -49,7 +49,7 @@ dependencies {
     apt "org.projectlombok:lombok:${lombokVersion}"
 	runtimeOnly('org.springframework.boot:spring-boot-devtools')
 	testImplementation('org.springframework.boot:spring-boot-starter-test')
-	runtime('de.flapdoodle.embed:de.flapdoodle.embed.mongo')
+	testRuntime('de.flapdoodle.embed:de.flapdoodle.embed.mongo')
 	testImplementation("info.cukes:cucumber-java:${cucumberVersion}")
 	testImplementation("info.cukes:cucumber-junit:${cucumberVersion}")
 	testImplementation("info.cukes:cucumber-spring:${cucumberVersion}")

@@ -1,5 +1,5 @@
 spring:
   data:
     mongodb:
-      host: localhost
+      host: springboot-mongo
       port: 27017

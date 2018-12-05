@@ -209,9 +209,9 @@ public class AccountantSteps {
 
     @And("^the system returns expected stats numbers$")
     public void theSystemReturnsExpectedStatsNumbers() throws Throwable {
-        Stats response = objectMapper.readValue(
+        AccountantStats response = objectMapper.readValue(
                 resultActions.andReturn().getResponse().getContentAsString(),
-                Stats.class);
+                AccountantStats.class);
         Assert.assertEquals(expectedCount, response.getCount());
         Assert.assertEquals(expectedSum, response.getSum(), 0.0);
         Assert.assertEquals(expectedAverage, response.getAverage(), 0.0);

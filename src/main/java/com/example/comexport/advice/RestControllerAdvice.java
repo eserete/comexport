@@ -1,5 +1,6 @@
-package com.example.comexport.exception;
+package com.example.comexport.advice;
 
+import com.example.comexport.exception.NotFoundException;
 import lombok.extern.java.Log;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ControllerAdvice;

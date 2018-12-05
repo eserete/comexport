@@ -35,7 +35,7 @@ public class AccountantEntryService {
         return accountantEntryRepository.findAccountantEntriesByAccountNumber(accountNumber);
     }
 
-    Stats stats(Integer accountNumber) {
+    AccountantStats stats(Integer accountNumber) {
         return accountantEntryRepository.stats(accountNumber);
     }
 }

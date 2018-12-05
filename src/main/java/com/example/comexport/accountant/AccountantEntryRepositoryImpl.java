@@ -24,7 +24,7 @@ public class AccountantEntryRepositoryImpl implements AccountantEntryRepositoryC
     }
 
     @Override
-    public Stats stats(Integer accountNumber) {
+    public AccountantStats stats(Integer accountNumber) {
         List<AggregationOperation> operations = new ArrayList<>();
 
         Optional.ofNullable(accountNumber)
@@ -41,6 +41,6 @@ public class AccountantEntryRepositoryImpl implements AccountantEntryRepositoryC
 
         Aggregation agg = newAggregation(operations);
 
-        return mongoTemplate.aggregate(agg, AccountantEntry.class, Stats.class).getUniqueMappedResult();
+        return mongoTemplate.aggregate(agg, AccountantEntry.class, AccountantStats.class).getUniqueMappedResult();
     }
 }
